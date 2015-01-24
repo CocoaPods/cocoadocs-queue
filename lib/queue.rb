@@ -8,6 +8,7 @@ class Queue
     #
     def start
       fork do
+        require_queue_libs
         loop do
           # Get the pod with the oldest queued_at.
           pod = oldest_queued_at_pod
@@ -35,6 +36,10 @@ class Queue
       end
     end
     
+    def require_queue_libs
+      Bundler.require(:queue)
+    end
+    
     def oldest_queued_at_pod
       pods_with_cocoadocs_metrics.
         order_by(:queued_at.asc).
@@ -57,13 +62,19 @@ class Queue
     end
     
     def trigger_a_worker name
-      puts "Trigger cocoadocs work on pod #{name}"
+      puts "Trigger cocoadocs work on pod #{name}:"
+      
+      # if response.success?
+      #   puts "SUCCESS"
+      # else
+      #   puts "FAIL. Trying next worker."
+      # end
     end
     
     def pods_with_cocoadocs_metrics
       Domain.pods.
         outer_join(Domain.cocoadocs_pod_metrics).
-        on(:pod_id => :id)
+        on(:id => :pod_id)
     end
     
   end

@@ -1,6 +1,12 @@
+Bundler.require(:default, ENV['RACK_ENV'].to_sym)
+
+# Load globally needed configs.
+#
+require_relative 'config/database'
+
 # Start queueing process.
 #
-require 'queue'
+require_relative 'queue'
 
 # Load web app.
 #
