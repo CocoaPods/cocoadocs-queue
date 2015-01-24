@@ -14,12 +14,8 @@ class QueueApp < Sinatra::Base
         where(Domain.pods[:name] => name).
         first
       if pod
-        now = Time.now
-        Domain.cocoadocs_pod_metrics.
-          update(:queued_at => now).
-          where(:pod_id => pod.id).
-          kick
-        body "Pod #{name} queued at #{now}"
+        Queue.update_queued_at(pod)
+        body "Pod #{name} enqueued."
       else
         status 404
       end
