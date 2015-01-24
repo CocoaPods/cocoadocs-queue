@@ -1,5 +1,7 @@
 require_relative 'lib/queue'
-Queue.workers = [
-  # Add CD workers here.
+
+Queue.workers_urls = [
+  # Add CD worker URLs to call here.
 ]
+
 Queue.start

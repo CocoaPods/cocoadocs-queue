@@ -2,7 +2,7 @@ class Queue
   
   class << self
     
-    attr_accessor :workers
+    attr_accessor :workers_urls
   
     # Start queueing.
     #
@@ -14,24 +14,11 @@ class Queue
         require_queue_libs
         loop do
           begin
-            # Get the pod with the oldest queued_at.
-            pod = oldest_queued_at_pod
-        
-            # If there is none, get an undocumented pod.
-            unless pod
-              pod = most_recent_undocumented_pod
-            end
-        
-            # If there are only documented pods which are
-            # not queued then just get the pod with the most
-            # recent updated_at.
-            unless pod
-              pod = most_recent_pod
-            end
+            pod = next_eligible_pod
         
             # Call a worker.
             #
-            trigger_a_worker pod
+            trigger_a_worker(pod) if pod
           
             # Do not hit workers too often. 
             #
@@ -45,6 +32,25 @@ class Queue
     
     def require_queue_libs
       Bundler.require(:queue)
+    end
+    
+    def next_eligible_pod
+      # Get the pod with the oldest queued_at.
+      pod = oldest_queued_at_pod
+  
+      # If there is none, get an undocumented pod.
+      unless pod
+        pod = most_recent_undocumented_pod
+      end
+  
+      # If there are only documented pods which are
+      # not queued then just get the pod with the most
+      # recent updated_at.
+      unless pod
+        pod = most_recent_pod
+      end
+      
+      pod
     end
     
     def oldest_queued_at_pod
@@ -74,8 +80,8 @@ class Queue
       
       $stdout.print "Trigger cocoadocs work on pod #{pod.name}: "
       
-      workers.each do |worker|
-        response = call_worker(worker)
+      workers_urls.each do |url|
+        response = call_worker(url)
         if response.success?
           $stdout.print "SUCCESS"
           break
@@ -104,7 +110,9 @@ class Queue
       end
     end
     
-    def call_worker worker
+    # Calls the given URL.
+    #
+    def call_worker url
       
     end
     
