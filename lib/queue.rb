@@ -7,31 +7,38 @@ class Queue
     # Start queueing.
     #
     def start
+      $stdout.puts "Starting queue."
       fork do
+        $stdout.sync = true
+        $stderr.sync = true
         require_queue_libs
         loop do
-          # Get the pod with the oldest queued_at.
-          pod = oldest_queued_at_pod
+          begin
+            # Get the pod with the oldest queued_at.
+            pod = oldest_queued_at_pod
         
-          # If there is none, get an undocumented pod.
-          unless pod
-            pod = most_recent_undocumented_pod
-          end
+            # If there is none, get an undocumented pod.
+            unless pod
+              pod = most_recent_undocumented_pod
+            end
         
-          # If there are only documented pods which are
-          # not queued then just get the pod with the most
-          # recent updated_at.
-          unless pod
-            pod = most_recent_pod
-          end
+            # If there are only documented pods which are
+            # not queued then just get the pod with the most
+            # recent updated_at.
+            unless pod
+              pod = most_recent_pod
+            end
         
-          # Call a worker.
-          #
-          trigger_a_worker pod
+            # Call a worker.
+            #
+            trigger_a_worker pod
           
-          # Do not hit workers too often. 
-          #
-          sleep 5
+            # Do not hit workers too often. 
+            #
+            sleep 5
+          rescue StandardError => e
+            $stderr.puts e.message
+          end
         end
       end
     end
@@ -42,7 +49,7 @@ class Queue
     
     def oldest_queued_at_pod
       pods_with_cocoadocs_metrics.
-        order_by(:queued_at.asc).
+        order_by(Domain.cocoadocs_pod_metrics[:queued_at].asc).
         first
     end
     
@@ -58,17 +65,47 @@ class Queue
     
     def most_recent_pods
       pods_with_cocoadocs_metrics.
-        order_by(:updated_at.desc)
+        order_by(
+          Domain.cocoadocs_pod_metrics[:updated_at].desc)
     end
     
-    def trigger_a_worker name
-      puts "Trigger cocoadocs work on pod #{name}:"
+    def trigger_a_worker pod
+      update_queued_at(pod)
       
-      # if response.success?
-      #   puts "SUCCESS"
-      # else
-      #   puts "FAIL. Trying next worker."
-      # end
+      $stdout.print "Trigger cocoadocs work on pod #{pod.name}: "
+      
+      workers.each do |worker|
+        response = call_worker(worker)
+        if response.success?
+          $stdout.print "SUCCESS"
+          break
+        else
+          $stdout.print "FAIL. Trying next worker."
+        end
+      end
+      $stdout.puts
+    end
+    
+    def update_queued_at pod
+      now = Time.now
+      metrics = Domain.cocoadocs_pod_metrics
+      if pod.cocoadocs_pod_metric.pod_id
+        metrics.
+          update(:queued_at => now).
+          where(:pod_id => pod.id).
+          kick
+      else
+        metrics.
+          insert(
+            :pod_id => pod.id,
+            :queued_at => now
+          ).
+          kick
+      end
+    end
+    
+    def call_worker worker
+      
     end
     
     def pods_with_cocoadocs_metrics
